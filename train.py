@@ -12,75 +12,52 @@ from typing import Any, List
 
 QUESTION_NB_DFLT = 5
 
-class TranslationDict():
+class Dict():
 
-    class Entry():
+    class Translation():
 
-        class Language():
+        class Destination():
 
-            class Entry():
-
-                def __init__(self, short: str, long: str = ""):
-                    self.short = short
-                    self.long = long
-
-                @classmethod
-                def from_dict(cls, data_dict: dict[str, str]):
-                    entry = cls(data_dict["short"])
-                    if "long" in data_dict:
-                        entry.long = data_dict["long"]
-                    return entry
-
-                def as_dict(self):
-                    data_dict = {
-                        "short": self.short
-                    }
-                    if self.long:
-                        data_dict["long"] = self.long
-                    return data_dict
-
-            def __init__(self, id: str, entry: Entry):
-                self.id = id
-                self.entry = entry
+            def __init__(self, short: str, long: str = ""):
+                self.short = short
+                self.long = long
+                self.example_list: List[str] = []
 
             @classmethod
             def from_dict(cls, data_dict: dict[str, Any]):
-                entry = TranslationDict.Entry.Language.Entry.from_dict(data_dict["entry"])
-                return TranslationDict.Entry.Language(data_dict["id"], entry)
+                entry = cls(data_dict["short"])
+                if "long" in data_dict:
+                    entry.long = data_dict["long"]
+                if "example_list" in data_dict:
+                    for example in data_dict["example_list"]:
+                        entry.example_list += [example]
+                return entry
 
             def as_dict(self):
-                return {
-                    "id": self.id,
-                    "entry": self.entry.as_dict()
+                data_dict: dict[str, Any] = {
+                    "short": self.short
                 }
+                if self.long:
+                    data_dict["long"] = self.long
+                if len(self.example_list) > 0:
+                    data_dict["example_list"] = [example for example in self.example_list]
+                return data_dict
 
-        def __init__(self, id: str, type: str):
+        def __init__(self, id: str, type: str, dst: Destination):
             self.id = id
             self.type = type
-            self.lang_dict: dict[str, TranslationDict.Entry.Language] = {}
-
-        def add_lang(self, lang: Language):
-            if lang.id in self.lang_dict:
-                return
-            self.lang_dict[lang.id] = lang
-
-        def get_lang(self, lang_id: str):
-            if lang_id not in self.lang_dict:
-                return None
-            return self.lang_dict[lang_id]
+            self.dst = dst
 
         @classmethod
         def from_dict(cls, data_dict: dict):
-            entry = TranslationDict.Entry(data_dict["id"], data_dict["type"])
-            for lang_entry_dict in data_dict["language_list"]:
-                entry.add_lang(TranslationDict.Entry.Language.from_dict(lang_entry_dict))
-            return entry
+            dst = Dict.Translation.Destination.from_dict(data_dict["dst"])
+            return Dict.Translation(data_dict["id"], data_dict["type"], dst)
 
         def as_dict(self):
             return {
                 "id": self.id,
                 "type": self.type,
-                "language_list" : [lang_entry.as_dict() for lang_entry in list(self.lang_dict.values())]
+                "dst": self.dst.as_dict()
             }
 
         def show(self):
@@ -88,22 +65,22 @@ class TranslationDict():
 
     def __init__(self, path: str):
         self.path = path
-        self.entry_dict: dict[str, TranslationDict.Entry] = {}
+        self.translation_dict: dict[str, Dict.Translation] = {}
         self.load()
 
     def load(self):
-        self.entry_dict = {}
+        self.translation_dict.clear()
         with open(self.path, "r", encoding="utf8") as json_file:
             json_dict = json.loads(json_file.read())
-            for entry_dict in json_dict["entry_list"]:
-                self.entry_dict[entry_dict["id"]] = TranslationDict.Entry.from_dict(entry_dict)
+            for translation_dict in json_dict["translation_list"]:
+                self.translation_dict[translation_dict["id"]] = Dict.Translation.from_dict(translation_dict)
 
     def save(self):
         pass
 
     def as_dict(self):
         return {
-            "entry_list": [entry.as_dict() for entry in list(self.entry_dict.values())]
+            "translation_list": [translation.as_dict() for translation in list(self.translation_dict.values())]
         }
 
     def show(self):
@@ -113,7 +90,7 @@ class StatDict():
 
     KEY_LIST = ["id", "err_nb", "total_nb"]
 
-    class Entry():
+    class Translation():
 
         def __init__(self, id: str, err_nb: int = 0, total_nb: int = 0):
             self.id = id
@@ -122,7 +99,7 @@ class StatDict():
 
         @classmethod
         def from_dict(cls, data_dict: dict):
-            return StatDict.Entry(
+            return StatDict.Translation(
                 data_dict["id"],
                 int(data_dict["err_nb"]),
                 int(data_dict["total_nb"]),
@@ -140,15 +117,15 @@ class StatDict():
 
     def __init__(self, path: str):
         self.path = path
-        self.entry_dict: dict[str, StatDict.Entry] = {}
+        self.entry_dict: dict[str, StatDict.Translation] = {}
         self.load()
 
     def load(self):
-        self.entry_dict = {}
+        self.entry_dict.clear()
         with open(self.path, "r", encoding="utf8") as csv_file:
             csv_reader = DictReader(csv_file)
             for entry_dict in csv_reader:
-                self.entry_dict[entry_dict["id"]] = StatDict.Entry.from_dict(entry_dict)
+                self.entry_dict[entry_dict["id"]] = StatDict.Translation.from_dict(entry_dict)
 
     def save(self):
         with open(self.path, "w", encoding="utf8") as csv_file:
@@ -167,37 +144,49 @@ class StatDict():
 
 def main():
     parser = ArgumentParser(description="English vocubulary trainer")
-    parser.add_argument("-n", "--number", type=int, default=QUESTION_NB_DFLT,
+    parser.add_argument("dict_path", type=str, help="Path to dictionnary JSON file")
+    parser.add_argument("-s", "--stat", type=str, default="", dest="stat_path", help="Path to statistics CSV file. Default to None")
+    parser.add_argument("-n", "--number", type=int, default=QUESTION_NB_DFLT, dest="question_nb",
         help=f"Number of questions to ask. Defaults to {QUESTION_NB_DFLT}")
     args = parser.parse_args()
 
-    translation_dict = TranslationDict("./data/translation.json")
-    stat_dict = StatDict("./data/stats.csv")
+    translation_dict = Dict(args.dict_path)
+    stat_dict = None
+    if args.stat_path:
+        stat_dict = StatDict(args.stat_path)
 
-    for _ in range(args.number):
-        translation_idx = random.randrange(0, len(list(translation_dict.entry_dict.values())))
-        translation = list(translation_dict.entry_dict.values())[translation_idx]
+    for question_idx in range(args.question_nb):
+        print(f"{question_idx + 1} / {args.question_nb}")
 
-        if translation.id not in stat_dict.entry_dict:
-            stat_dict.entry_dict[translation.id] = StatDict.Entry(translation.id)
-        stat = stat_dict.entry_dict[translation.id]
+        translation_idx = random.randrange(0, len(list(translation_dict.translation_dict.values())))
+        translation = list(translation_dict.translation_dict.values())[translation_idx]
 
-        print(translation.lang_dict["en"].entry.short)
-        if translation.lang_dict["en"].entry.long:
-            print(translation.lang_dict["en"].entry.long)
+        stat = StatDict.Translation(translation.id)
+        if stat_dict:
+            if translation.id not in stat_dict.entry_dict:
+                stat_dict.entry_dict[translation.id] = stat
+            else:
+                stat = stat_dict.entry_dict[translation.id]
+
+        print(translation.id)
         answer = input()
-        if answer == translation.lang_dict["fr"].entry.short:
+        if answer == translation.dst.short:
             print("OK")
         else:
             print("ERROR")
-            print(translation.lang_dict["fr"].entry.short)
+            print(translation.dst.short)
             stat.err_nb += 1
         stat.total_nb += 1
-        if translation.lang_dict["fr"].entry.long:
-            print(translation.lang_dict["fr"].entry.long)
+        if translation.dst.long:
+            print(translation.dst.long)
+        if len(translation.dst.example_list) > 0:
+            print("Examples :")
+            print("\n".join([f"- {ex}" for ex in translation.dst.example_list]))
+
         print()
 
-    stat_dict.save()
+    if stat_dict:
+        stat_dict.save()
 
 if __name__ == "__main__":
     main()
