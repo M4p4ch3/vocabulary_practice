@@ -9,46 +9,52 @@ class TranslationDict():
 
         class Destination():
 
-            def __init__(self, short: str, long: str = ""):
-                self.short = short
-                self.long = long
+            def __init__(self, repr: str):
+                self.repr = repr
+                self.answer_list: List[str] = []
                 self.example_list: List[str] = []
 
             @classmethod
             def from_dict(cls, data_dict: Dict[str, Any]):
-                entry = cls(data_dict["short"])
-                if "long" in data_dict:
-                    entry.long = data_dict["long"]
+                inst = cls(data_dict["repr"])
+                inst.answer_list = [answer for answer in data_dict["answer_list"]]
                 if "example_list" in data_dict:
-                    for example in data_dict["example_list"]:
-                        entry.example_list += [example]
-                return entry
+                    inst.example_list = [example for example in data_dict["example_list"]]
+                return inst
 
             def as_dict(self):
                 data_dict: Dict[str, Any] = {
-                    "short": self.short
+                    "repr": self.repr,
+                    "answer_list" : [answer for answer in self.answer_list]
                 }
-                if self.long:
-                    data_dict["long"] = self.long
                 if len(self.example_list) > 0:
                     data_dict["example_list"] = [example for example in self.example_list]
                 return data_dict
 
-        def __init__(self, id: str, type: str, dst: Destination):
+            def as_str(self):
+                return json.dumps(self.as_dict(), indent=4, ensure_ascii=False)
+
+            def show(self):
+                print(self.as_str())
+
+        def __init__(self, id: str, type: str, repr: str):
             self.id = id
             self.type = type
-            self.dst = dst
+            self.repr = repr
+            self.dst_list: List[TranslationDict.Translation.Destination] = []
 
         @classmethod
         def from_dict(cls, data_dict: Dict):
-            dst = TranslationDict.Translation.Destination.from_dict(data_dict["dst"])
-            return TranslationDict.Translation(data_dict["id"], data_dict["type"], dst)
+            inst = TranslationDict.Translation(data_dict["id"], data_dict["type"], data_dict["repr"])
+            inst.dst_list = [TranslationDict.Translation.Destination.from_dict(dst_dict) for dst_dict in data_dict["dst_list"]]
+            return inst
 
         def as_dict(self):
             return {
                 "id": self.id,
                 "type": self.type,
-                "dst": self.dst.as_dict()
+                "repr": self.repr,
+                "dst_list": [dst.as_dict() for dst in self.dst_list]
             }
 
         def as_str(self):

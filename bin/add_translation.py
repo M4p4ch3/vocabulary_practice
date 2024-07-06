@@ -21,47 +21,71 @@ def main():
 
     translation_dict = TranslationDict(args.dict_path)
 
-    add_another = True
-    while add_another:
-        id = input("- ID : ")
+    print("Translations :")
+    translation_idx = 0
+    while True:
+        print(f"- Translation {translation_idx + 1} :")
+
+        id = input("  - ID : ")
+        if not id:
+            break
+
         if id in translation_dict.translation_dict:
             print(f"ERROR Translation ID already in use. Translation : {translation_dict.translation_dict[id].as_str()}")
             print()
             continue
 
-        type = input("- Type (noun, verb, adj): ")
+        type = input("  - Type (noun, verb, adj): ")
+        repr = input("  - Representation : ")
 
-        print("- Destination : ")
+        translation = TranslationDict.Translation(id, type, repr)
 
-        short = input("  - Short : ")
-        dst = TranslationDict.Translation.Destination(short)
+        print("  - Destinations :")
+        dst_idx = 0
+        while True:
+            print(f"    - Destination {dst_idx + 1} :")
 
-        long = input("  - Long : ")
-        if long:
-            dst.long = long
+            repr = input("      - Representation : ")
+            if not repr:
+                break
 
-        print("  - Examples (None to exit) : ")
-        add_another_ex = True
-        while add_another_ex:
+            dst = TranslationDict.Translation.Destination(repr)
+
+            print("      - Answers :")
+            answer_idx = 0
+            while True:
+                answer = input(f"        - Answer {answer_idx + 1} : ")
+                if not answer:
+                    break
+                dst.answer_list += [answer]
+                answer_idx += 1
+
+            print("      - Examples : ")
             ex_idx = 0
-            example = input(f"    - Example {ex_idx + 1} : ")
-            if example:
+            while True:
+                example = input(f"        - Example {ex_idx + 1} : ")
+                if not example:
+                    break
                 dst.example_list += [example]
-            else:
-                add_another_ex = False
-            ex_idx += 1
+                ex_idx += 1
 
-        translation = TranslationDict.Translation(id, type, dst)
+            print(f"    - Destination {dst_idx + 1} :")
+            dst.show()
+            add = str_to_bool(input("  Add ? (y/n) : "))
+            if add:
+                translation.dst_list += [dst]
 
-        print("Translation :")
+            dst_idx += 1
+            print()
+
+        print(f"  Translation {translation_idx} :")
         translation.show()
         add = str_to_bool(input("Add ? (y/n) : "))
         if add:
             translation_dict.translation_dict[id] = translation
             translation_dict.save()
 
-        print()
-        add_another = str_to_bool(input("Add another ? (y/n) : "))
+        translation_idx += 1
         print()
 
 if __name__ == "__main__":

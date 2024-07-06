@@ -5,11 +5,15 @@ English vocabulary trainer
 
 from argparse import ArgumentParser
 import random
+import unicodedata
 
 from vocab_practice.dict import TranslationDict
 from vocab_practice.stat import StatDict
 
 QUESTION_NB_DFLT = 5
+
+def to_ascii(data: str):
+    return unicodedata.normalize("NFKD", data).encode("ASCII","ignore").decode("ascii")
 
 def main():
     parser = ArgumentParser(description="English vocubulary trainer")
@@ -20,6 +24,7 @@ def main():
     args = parser.parse_args()
 
     translation_dict = TranslationDict(args.dict_path)
+    translation_dict.show()
     stat_dict = None
     if args.stat_path:
         stat_dict = StatDict(args.stat_path)
@@ -29,6 +34,7 @@ def main():
 
         translation_idx = random.randrange(0, len(list(translation_dict.translation_dict.values())))
         translation = list(translation_dict.translation_dict.values())[translation_idx]
+        print(translation.repr)
 
         stat = StatDict.Translation(translation.id)
         if stat_dict:
@@ -37,21 +43,23 @@ def main():
             else:
                 stat = stat_dict.entry_dict[translation.id]
 
-        print(translation.id)
-        answer = input()
-        if answer == translation.dst.short:
+        answer_ok_list = []
+        for dst in translation.dst_list:
+            answer_ok_list += [to_ascii(answer.lower()) for answer in dst.answer_list]
+        print(answer_ok_list)
+
+        if to_ascii(input().lower()) in answer_ok_list:
             print("OK")
         else:
             print("ERROR")
-            print(translation.dst.short)
             stat.err_nb += 1
-        stat.total_nb += 1
-        if translation.dst.long:
-            print(translation.dst.long)
-        if len(translation.dst.example_list) > 0:
-            print("Examples :")
-            print("\n".join([f"- {ex}" for ex in translation.dst.example_list]))
 
+        print("Destinations : [")
+        for dst in translation.dst_list:
+            dst.show()
+        print("]")
+
+        stat.total_nb += 1
         print()
 
     if stat_dict:
