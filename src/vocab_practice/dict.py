@@ -1,5 +1,6 @@
 
 import json
+import shutil
 from typing import Any, List, Dict
 
 class TranslationDict():
@@ -50,11 +51,15 @@ class TranslationDict():
                 "dst": self.dst.as_dict()
             }
 
+        def as_str(self):
+            return json.dumps(self.as_dict(), indent=4, ensure_ascii=False)
+
         def show(self):
-            print(json.dumps(self.as_dict(), indent=4, ensure_ascii=False))
+            print(self.as_str())
 
     def __init__(self, path: str):
         self.path = path
+        self.backup_path = f"{self.path.removesuffix('.json')}_save.json"
         self.translation_dict: Dict[str, TranslationDict.Translation] = {}
         self.load()
 
@@ -65,13 +70,28 @@ class TranslationDict():
             for translation_dict in json_dict["translation_list"]:
                 self.translation_dict[translation_dict["id"]] = TranslationDict.Translation.from_dict(translation_dict)
 
+    def _backup(self):
+        shutil.copyfile(self.path, self.backup_path)
+
+    def _restore(self):
+        shutil.copyfile(self.backup_path, self.path)
+
     def save(self):
-        pass
+        self._backup()
+        try:
+            with open(self.path, "w", encoding="utf8") as json_file:
+                json_file.write(self.as_str())
+        except Exception:
+            print("ERROR save to file FAILED. Restoring")
+            self._restore()
 
     def as_dict(self):
         return {
             "translation_list": [translation.as_dict() for translation in list(self.translation_dict.values())]
         }
 
+    def as_str(self):
+        return json.dumps(self.as_dict(), indent=4, ensure_ascii=False)
+
     def show(self):
-        print(json.dumps(self.as_dict(), indent=4, ensure_ascii=False))
+        print(self.as_str())
